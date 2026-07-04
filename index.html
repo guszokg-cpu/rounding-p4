@@ -3320,6 +3320,10 @@
     }
 
     async function saveQuizAttemptToSupabase(percent, stars, timedOut) {
+      if (timedOut) {
+        setQuizSaveStatus("offline", "หมดเวลา: ระบบไม่บันทึกผลสอบครั้งนี้ลงฐานข้อมูล", "⏰");
+        return;
+      }
       if (!isSupabaseConfigured()) {
         setQuizSaveStatus("offline", "ยังไม่ได้ตั้งค่า Supabase: ผลสอบแสดงบนหน้านี้ แต่ยังไม่ถูกบันทึกลงฐานข้อมูล", "☁️");
         return;
@@ -3586,14 +3590,17 @@
       setTimeout(() => confetti.innerHTML = "", 1300);
     }
 
-    // Optional files: add sounds/correct.mp3, sounds/wrong.mp3, sounds/reveal.mp3 and sounds/click.mp3 for custom feedback sounds.
+    // Optional files: add sounds/*.mp3 for custom feedback sounds.
     const feedbackSounds = {
       correct: new Audio("sounds/correct.mp3"),
       wrong: new Audio("sounds/wrong.mp3"),
       reveal: new Audio("sounds/reveal.mp3"),
-      click: new Audio("sounds/click.mp3")
+      click: new Audio("sounds/click.mp3"),
+      tabMenu: new Audio("sounds/tab-menu.mp3"),
+      choiceHover: new Audio("sounds/choice.mp3")
     };
     let feedbackSoundUnlocked = false;
+    let lastChoiceHoverSoundAt = 0;
 
     function playTone(kind) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -3615,8 +3622,29 @@
 
     function playAnswerSound(kind) {
       const sound = feedbackSounds[kind];
+      if (!sound) return;
       sound.currentTime = 0;
       sound.play().catch(() => playTone(kind));
+    }
+
+    function playChoiceHoverSound() {
+      const now = Date.now();
+      if (now - lastChoiceHoverSoundAt < 140) return;
+      lastChoiceHoverSoundAt = now;
+      playAnswerSound("choiceHover");
+    }
+
+    function wireChoiceHoverSounds(scope = document) {
+      scope.querySelectorAll(".answer-button, .quiz-choice, .choice-btn").forEach((button) => {
+        if (button.dataset.hoverSoundReady === "true") return;
+        button.dataset.hoverSoundReady = "true";
+        const playIfReady = () => {
+          if (button.disabled || button.classList.contains("answered")) return;
+          playChoiceHoverSound();
+        };
+        button.addEventListener("pointerenter", playIfReady);
+        button.addEventListener("focus", playIfReady);
+      });
     }
 
     function unlockAnswerSounds() {
@@ -3930,6 +3958,7 @@
           button.classList.add("correct");
         });
       });
+      wireChoiceHoverSounds(container);
     }
 
     function confirmPractice() {
@@ -4091,6 +4120,7 @@
       document.getElementById("nextGame").style.display = "none";
       document.getElementById("gameChoices").innerHTML = answerChoices(q).map((choice) => `<button class="quiz-choice ${getChoiceNumberSizeClass(choice)}" type="button" data-game="${choice}">${renderChoiceContent(choice)}</button>`).join("");
       document.querySelectorAll("[data-game]").forEach((button) => button.addEventListener("click", () => handleGameAnswer(button)));
+      wireChoiceHoverSounds(document.getElementById("gameChoices"));
       renderNumberLine(document.getElementById("gameNumberLine"), q);
       renderExplainCards(document.getElementById("gameReason"), q);
       setFeedback(document.getElementById("gameFeedback"), "เลือกคำตอบที่ใกล้ที่สุด", "good", "⭐");
@@ -4266,6 +4296,7 @@
       `;
       document.querySelectorAll("[data-quiz]").forEach((button) => button.addEventListener("click", () => handleQuizAnswer(button)));
       document.getElementById("nextQuiz").addEventListener("click", nextQuiz);
+      wireChoiceHoverSounds(document.getElementById("quizArea"));
     }
 
     function handleQuizAnswer(button) {
@@ -4339,7 +4370,11 @@
       document.getElementById("quizStarsEarned").textContent = `${"★".repeat(stars)}${"☆".repeat(3 - stars)}`;
       document.getElementById("quizMedals").textContent = stars >= 3 ? "ทอง" : stars >= 2 ? "เงิน" : "ฝึกต่อ";
       renderCertificatePanel(percent, timedOut);
-      saveQuizAttemptToSupabase(percent, stars, timedOut);
+      if (timedOut) {
+        setQuizSaveStatus("offline", "หมดเวลา: ระบบไม่บันทึกผลสอบครั้งนี้ลงฐานข้อมูล", "⏰");
+      } else {
+        saveQuizAttemptToSupabase(percent, stars, timedOut);
+      }
       document.getElementById("quizReview").innerHTML = quizState.answers.map((item, index) => `
         <div class="review-item ${item.correct ? "good" : "bad"}">
           <strong>ข้อ ${index + 1}: ${fmt(item.q.number)} เป็น${item.q.place.label}</strong><br>
@@ -4362,7 +4397,11 @@
     });
     document.getElementById("editStudentInfo").addEventListener("click", () => openStudentModal(false));
 
-    tabs.forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
+    tabs.forEach((tab) => tab.addEventListener("click", () => {
+      unlockAnswerSounds();
+      playAnswerSound("tabMenu");
+      showView(tab.dataset.view);
+    }));
     learnNumber.addEventListener("input", resetLearnAnswerAndRender);
     learnPlace.addEventListener("change", resetLearnAnswerAndRender);
     document.getElementById("toggleLearnAnswer").addEventListener("click", toggleLearnAnswer);
@@ -4393,6 +4432,7 @@
     renderLearning();
     renderCalculator();
     initVisitorCounter();
+    wireChoiceHoverSounds();
     createIcons();
   </script>
 </body>
