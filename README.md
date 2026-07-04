@@ -7,6 +7,7 @@
 - `index.html` หน้าเว็บหลักทั้งหมด
 - `sounds/` ไฟล์เสียง feedback
 - `supabase/quiz_attempts.sql` SQL สำหรับสร้างตารางเก็บผลแบบทดสอบ
+- `supabase/site_counter.sql` SQL สำหรับสร้างตัวนับผู้เข้าชมเว็บไซต์จริง เริ่มนับจาก 0
 
 ## เปิดใช้งานในเครื่อง
 
@@ -21,9 +22,10 @@ npx serve .
 1. สร้าง project ใน Supabase
 2. ไปที่ SQL Editor
 3. รันไฟล์ `supabase/quiz_attempts.sql`
-4. ไปที่ Project Settings > API
-5. คัดลอก `Project URL` และ `anon public key`
-6. เปิด `index.html` แล้วใส่ค่าที่ส่วนนี้:
+4. รันไฟล์ `supabase/site_counter.sql`
+5. ไปที่ Project Settings > API
+6. คัดลอก `Project URL` และ `anon public key`
+7. เปิด `index.html` แล้วใส่ค่าที่ส่วนนี้:
 
 ```js
 const SUPABASE_URL = "";
@@ -31,6 +33,8 @@ const SUPABASE_ANON_KEY = "";
 ```
 
 ห้ามใส่ `service_role key` ใน `index.html` เพราะไฟล์นี้ถูกส่งไปที่ browser ของผู้ใช้ทุกคน
+
+ตัวนับผู้เข้าชมเว็บไซต์ใช้ Supabase RPC และเริ่มต้นที่ 0 ระบบจะเพิ่มยอด 1 ครั้งต่อ browser session เพื่อป้องกันการนับซ้ำจากการ refresh หน้าเดิม
 
 ## Deploy ขึ้น GitHub + Vercel
 

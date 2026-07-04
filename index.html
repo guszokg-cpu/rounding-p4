@@ -3070,9 +3070,7 @@
     const STUDENT_INFO_KEY = "roundingP4StudentInfo";
     const GAME_STARS_KEY = "roundingP4GameStars";
     const QUIZ_REQUIRED_STARS = 10;
-    const VISITOR_COUNT_KEY = "roundingP4VisitorCount";
     const VISITOR_SESSION_KEY = "roundingP4HasCountedVisit";
-    const VISITOR_BASE_COUNT = 1245;
     // ใส่ค่า Supabase เมื่อต้องการบันทึกผลสอบจริง ห้ามใช้ service_role key ในไฟล์นี้
     const SUPABASE_URL = "https://jcputaiygidazrphetjo.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_Xy_dRk0uyPmkv-HiTW1Xmg_7NVWGQC4";
@@ -3105,20 +3103,41 @@
       document.getElementById("visitorCounter")?.classList.add("loaded");
     }
 
-    function initVisitorCounter() {
+    async function callSupabaseRpc(functionName) {
+      const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/rpc/${functionName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        body: "{}"
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function initVisitorCounter() {
       const container = document.getElementById("visitorDigits");
       if (!container) return;
+      if (!isSupabaseConfigured()) {
+        renderVisitorDigits("0");
+        return;
+      }
       try {
-        // Static-site fallback: this counts visits only in the current user's browser, not the real total across the whole website.
-        const storedCount = Number(localStorage.getItem(VISITOR_COUNT_KEY));
-        let count = Number.isFinite(storedCount) && storedCount >= VISITOR_BASE_COUNT ? storedCount : VISITOR_BASE_COUNT;
+        let count;
         if (!sessionStorage.getItem(VISITOR_SESSION_KEY)) {
-          count += 1;
-          localStorage.setItem(VISITOR_COUNT_KEY, String(count));
+          count = await callSupabaseRpc("increment_site_visit");
           sessionStorage.setItem(VISITOR_SESSION_KEY, "true");
+        } else {
+          count = await callSupabaseRpc("get_site_visit_count");
         }
         renderVisitorDigits(fmt(count));
       } catch (error) {
+        console.error("Visitor counter failed", error);
         container.textContent = "-";
       }
     }
