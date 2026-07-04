@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     :root {
       --sky: #d9f4ff;
@@ -1787,6 +1789,22 @@
       margin-top: 16px;
     }
 
+    .game-play-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .compact-back {
+      width: auto;
+      min-height: 58px;
+      padding: 10px 18px;
+      font-size: clamp(20px, 1.15vw, 28px);
+      white-space: nowrap;
+    }
+
     .settings-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2905,10 +2923,13 @@
       <div class="game-play grid-2" id="gamePlay">
         <article class="tv-card">
           <div class="tv-card-inner">
-            <span class="question-badge" id="gameProgressText">ข้อ 1/10</span>
+            <div class="game-play-top">
+              <span class="question-badge" id="gameProgressText">ข้อ 1/10</span>
+              <button class="answer-button compact-back" type="button" id="backToGameSetupTop">← กลับไปหน้าเกม</button>
+            </div>
             <div class="progress-track game-progress-track" id="gameProgressTrack"></div>
             <div class="timer-row">
-              <span class="timer-pill" id="gameTimerText">⏱ 15</span>
+              <span class="timer-pill" id="gameTimerText">⏱ 20</span>
               <div class="timer-bar" id="gameTimerBar"><span></span></div>
             </div>
             <div class="hero-number" id="gameNumber">0</div>
@@ -3064,7 +3085,7 @@
     let selectedGameStyle = "showLine";
     let showEstimatePanel = false;
     let showVisualPanel = false;
-    const GAME_QUESTION_SECONDS = 15;
+    const GAME_QUESTION_SECONDS = 20;
     const QUIZ_TOTAL_QUESTIONS = 20;
     const QUIZ_TOTAL_SECONDS = 10 * 60;
     const STUDENT_INFO_KEY = "roundingP4StudentInfo";
@@ -3418,11 +3439,31 @@
           <span>คะแนน ${quizState.score}/${quizState.total} (${percent}%) | ระดับ ${level}</span>
           <span>${timedOut ? "หมดเวลาเมื่อ" : "ทำเสร็จเมื่อ"} ${dateText}</span>
           <div class="certificate-actions">
-            <button class="student-primary-btn" type="button" id="downloadCertificate">⬇ ดาวน์โหลด Certificate</button>
+            <button class="student-primary-btn" type="button" id="downloadCertificate">⬇ ดาวน์โหลด PDF</button>
           </div>
         </div>
       `;
       document.getElementById("downloadCertificate").addEventListener("click", () => downloadCertificate(percent, level, dateText, timedOut));
+    }
+
+    function certificateBodyHtml(percent, level, dateText, timedOut = false) {
+      const display = getStudentDisplayInfo();
+      return `
+  <section class="page">
+    <h1>ใบรายงานผลคะแนน / Certificate</h1>
+    <div class="line"></div>
+    <p>ขอมอบให้</p>
+    <h2>${escapeHtml(display.fullName)}</h2>
+    <p>ชั้น ${escapeHtml(display.className)} เลขที่ ${escapeHtml(display.studentNumber)}</p>
+    <p>${escapeHtml(display.schoolName)}</p>
+    <div class="line"></div>
+    <p>ผ่านการทดสอบเรื่องค่าประมาณของจำนวนนับ ป.4</p>
+    <p class="score">คะแนน ${quizState.score} / ${quizState.total} (${percent}%)</p>
+    <p>ระดับผลการทดสอบ: ${level}</p>
+    <p>คิดเป็นร้อยละ ${percent}</p>
+    <p>${timedOut ? "หมดเวลาเมื่อ" : "เมื่อวันที่"} ${dateText}</p>
+    <p class="small">ความพยายามวันนี้ จะทำให้เราเก่งขึ้นในทุกวัน</p>
+  </section>`;
     }
 
     function certificateHtml(percent, level, dateText, timedOut = false) {
@@ -3442,35 +3483,80 @@
   </style>
 </head>
 <body>
-  <section class="page">
-    <h1>ใบรายงานผลคะแนน / Certificate</h1>
-    <div class="line"></div>
-    <p>ขอมอบให้</p>
-    <h2>${escapeHtml(display.fullName)}</h2>
-    <p>ชั้น ${escapeHtml(display.className)} เลขที่ ${escapeHtml(display.studentNumber)}</p>
-    <p>${escapeHtml(display.schoolName)}</p>
-    <div class="line"></div>
-    <p>ผ่านการทดสอบเรื่องค่าประมาณของจำนวนนับ ป.4</p>
-    <p class="score">คะแนน ${quizState.score} / ${quizState.total} (${percent}%)</p>
-    <p>ระดับผลการทดสอบ: ${level}</p>
-    <p>คิดเป็นร้อยละ ${percent}</p>
-    <p>${timedOut ? "หมดเวลาเมื่อ" : "เมื่อวันที่"} ${dateText}</p>
-    <p class="small">ความพยายามวันนี้ จะทำให้เราเก่งขึ้นในทุกวัน</p>
-  </section>
+  ${certificateBodyHtml(percent, level, dateText, timedOut)}
 </body>
 </html>`;
     }
 
-    function downloadCertificate(percent, level, dateText, timedOut = false) {
-      const blob = new Blob([certificateHtml(percent, level, dateText, timedOut)], { type: "text/html;charset=utf-8" });
-      const link = document.createElement("a");
+    function fallbackPrintCertificate(percent, level, dateText, timedOut = false) {
+      const popup = window.open("", "_blank");
+      if (!popup) return;
+      popup.document.open();
+      popup.document.write(certificateHtml(percent, level, dateText, timedOut));
+      popup.document.close();
+      popup.focus();
+      setTimeout(() => popup.print(), 450);
+    }
+
+    async function downloadCertificate(percent, level, dateText, timedOut = false) {
       const display = getStudentDisplayInfo();
-      link.href = URL.createObjectURL(blob);
-      link.download = `certificate-${display.fullName.replace(/\s+/g, "-") || "student"}.html`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      const button = document.getElementById("downloadCertificate");
+      const originalText = button?.textContent || "ดาวน์โหลด PDF";
+      let wrapper = null;
+      try {
+        if (!window.html2canvas || !window.jspdf?.jsPDF) throw new Error("PDF libraries are not ready");
+        if (button) {
+          button.disabled = true;
+          button.textContent = "กำลังสร้าง PDF...";
+        }
+        wrapper = document.createElement("div");
+        wrapper.style.position = "fixed";
+        wrapper.style.left = "-9999px";
+        wrapper.style.top = "0";
+        wrapper.style.width = "1240px";
+        wrapper.style.padding = "1px";
+        wrapper.style.background = "#eef8ff";
+        wrapper.innerHTML = `
+          <style>
+            .page{box-sizing:border-box;width:1120px;min-height:760px;margin:28px auto;padding:54px;border:10px solid #2f88ff;border-radius:34px;background:linear-gradient(180deg,#fff,#f8fdff);box-shadow:0 22px 60px rgba(0,0,0,.14);text-align:center;font-family:"Noto Sans Thai","Kanit",Tahoma,sans-serif;color:#073f48;}
+            h1{font-size:54px;margin:0;color:#0a4f92;} h2{font-size:44px;margin:24px 0 8px;color:#07464e;}
+            .line{height:4px;background:#ffd45f;border-radius:999px;margin:24px auto;width:70%;}
+            p{font-size:28px;margin:12px 0;font-weight:700;} .score{font-size:46px;color:#087a3f;font-weight:900;}
+            .small{font-size:24px;color:#466b72;}
+          </style>
+          ${certificateBodyHtml(percent, level, dateText, timedOut)}
+        `;
+        document.body.appendChild(wrapper);
+        await document.fonts?.ready;
+        const canvas = await html2canvas(wrapper.querySelector(".page"), {
+          backgroundColor: "#eef8ff",
+          scale: 2
+        });
+        wrapper.remove();
+        wrapper = null;
+        const pdf = new window.jspdf.jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: "a4"
+        });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 8;
+        const imgWidth = pageWidth - margin * 2;
+        const imgHeight = Math.min(pageHeight - margin * 2, imgWidth * canvas.height / canvas.width);
+        const y = (pageHeight - imgHeight) / 2;
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, y, imgWidth, imgHeight);
+        pdf.save(`certificate-${display.fullName.replace(/\s+/g, "-") || "student"}.pdf`);
+      } catch (error) {
+        console.error("PDF download failed", error);
+        fallbackPrintCertificate(percent, level, dateText, timedOut);
+      } finally {
+        wrapper?.remove();
+        if (button) {
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+      }
     }
 
     function showView(name) {
@@ -3616,8 +3702,11 @@
       reveal: new Audio("sounds/reveal.mp3"),
       click: new Audio("sounds/click.mp3"),
       tabMenu: new Audio("sounds/tab-menu.mp3"),
-      choiceHover: new Audio("sounds/choice.mp3")
+      choiceHover: new Audio("sounds/choice.mp3"),
+      tutorialLoop: new Audio("sounds/tutorial-loop.mp3")
     };
+    feedbackSounds.tutorialLoop.loop = true;
+    feedbackSounds.tutorialLoop.volume = 0.38;
     let feedbackSoundUnlocked = false;
     let lastChoiceHoverSoundAt = 0;
 
@@ -3651,6 +3740,20 @@
       if (now - lastChoiceHoverSoundAt < 140) return;
       lastChoiceHoverSoundAt = now;
       playAnswerSound("choiceHover");
+    }
+
+    function startGameLoopSound() {
+      const sound = feedbackSounds.tutorialLoop;
+      if (!sound) return;
+      sound.currentTime = 0;
+      sound.play().catch(() => {});
+    }
+
+    function stopGameLoopSound() {
+      const sound = feedbackSounds.tutorialLoop;
+      if (!sound) return;
+      sound.pause();
+      sound.currentTime = 0;
     }
 
     function wireChoiceHoverSounds(scope = document) {
@@ -3761,6 +3864,7 @@
     function stopGameTimer() {
       clearInterval(gameTimerId);
       gameTimerId = null;
+      stopGameLoopSound();
     }
 
     function renderGameTimer() {
@@ -3779,6 +3883,7 @@
       stopGameTimer();
       gameState.timeLeft = GAME_QUESTION_SECONDS;
       renderGameTimer();
+      startGameLoopSound();
       gameTimerId = setInterval(() => {
         if (!gameState || gameState.locked) return;
         gameState.timeLeft -= 1;
@@ -4441,6 +4546,7 @@
     document.getElementById("startGame").addEventListener("click", startGame);
     document.getElementById("nextGame").addEventListener("click", nextGame);
     document.getElementById("backToGameSetup").addEventListener("click", resetGame);
+    document.getElementById("backToGameSetupTop").addEventListener("click", resetGame);
     document.getElementById("resetGame").addEventListener("click", resetGame);
     document.getElementById("restartQuiz").addEventListener("click", startQuiz);
 
